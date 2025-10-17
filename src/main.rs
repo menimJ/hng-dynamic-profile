@@ -36,9 +36,8 @@ async fn main() {
         .layer(CorsLayer::very_permissive());
 
     // robust bind (as you already had)
-    let port: u16 = std::env::var("PORT").ok().and_then(|s| s.parse().ok()).unwrap_or(8080);
-    
-    let addr = SocketAddr::from(([0, 0, 0, 0], port));
+    // load config
+    let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
     let listener = TcpListener::bind(addr).await.expect("bind failed");
     tracing::info!("🚀 Listening on http://{addr}");
     axum::serve(listener, app).await.expect("server crashed");

@@ -6,7 +6,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use chrono::Utc;
+use chrono::{Utc, SecondsFormat};
 use reqwest::Client;
 
 use crate::models::{ErrorResponse, ProfileResponse, User};
@@ -38,7 +38,7 @@ pub async fn me_handler(
                     name: "Samuel Menim".into(),
                     stack: "Rust/Axum".into(),
                 },
-                timestamp: Utc::now().to_rfc3339(),
+                timestamp: Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true),
                 fact,
             };
             (StatusCode::OK, Json(body)).into_response()
