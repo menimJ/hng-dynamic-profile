@@ -1,4 +1,6 @@
-use std::{io, sync::Arc};
+use std::net::SocketAddr;            // ✅ needed for SocketAddr
+
+use std::sync::Arc;
 use axum::{Router, routing::get, middleware::from_fn}; // ✅ get + from_fn
 use tokio::net::TcpListener;
 use tower_http::cors::CorsLayer;
@@ -34,24 +36,10 @@ async fn main() {
         .layer(CorsLayer::very_permissive());
 
     // robust bind (as you already had)
-    let listener = match TcpListener::bind(("0.0.0.0", config.port)).await {
-        Ok(l) => l,
-        Err(e) if e.kind() == io::ErrorKind::AddrInUse => {
-            tracing::warn!("Port {} busy; trying 127.0.0.1", config.port);
-            match TcpListener::bind(("127.0.0.1", config.port)).await {
-                Ok(l) => l,
-                Err(_) => {
-                    tracing::warn!("Falling back to ephemeral port");
-                    TcpListener::bind(("0.0.0.0", 0)).await.expect("fallback bind failed")
-                }
-            }
-        }
-        Err(e) => panic!("bind failed: {e}"),
-    };
-
-    let addr = listener.local_addr().unwrap();
+    let port: u16 = std::env::var("PORT").ok().and_then(|s| s.parse().ok()).unwrap_or(8080);
+    
+    let addr = SocketAddr::from(([0, 0, 0, 0], port));
+    let listener = TcpListener::bind(addr).await.expect("bind failed");
     tracing::info!("🚀 Listening on http://{addr}");
-    tracing::info!("Try: http://127.0.0.1:{}/me", addr.port());
-
     axum::serve(listener, app).await.expect("server crashed");
 }

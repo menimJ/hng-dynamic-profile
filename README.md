@@ -1,6 +1,8 @@
 # 🐱 Dynamic Profile API (Rust + Axum)
 
-Production-ready API for **HNG Backend Stage 0**. It returns:
+Production‑ready API for **HNG Backend Stage 0**.
+
+It returns:
 
 - ✅ Your profile data (email, name, stack)
 - 🕒 Current UTC timestamp (ISO 8601)
@@ -21,14 +23,14 @@ Production-ready API for **HNG Backend Stage 0**. It returns:
 
 ## 🚀 Features
 
-- 🦀 Rust 2021 + Tokio async runtime
-- ⚡ Axum 0.7 web framework
-- 🌐 Reqwest HTTP client with per-request timeout
-- 🧰 Clean error mapping (upstream → your simple error JSON + correct status code)
-- 📄 OpenAPI (Utoipa) + Swagger UI at `/docs`
-- 📊 Prometheus-compatible metrics at `/metrics`
-- 🧪 Integration tests
-- 🔁 Optional circuit-breaker friendly architecture
+- 🦀 Rust 2021 + Tokio async runtime  
+- ⚡ Axum 0.7 web framework  
+- 🌐 Reqwest HTTP client with per‑request timeout  
+- 🧰 Clean error mapping (upstream → simple error JSON + correct status code)  
+- 📄 OpenAPI (Utoipa) + Swagger UI at `/docs`  
+- 📊 Prometheus‑compatible metrics at `/metrics`  
+- 🧪 Integration tests  
+- 🔁 Circuit‑breaker friendly architecture (pluggable)  
 - 🔭 Observability (tracing logs + request latency metrics)
 
 ---
@@ -36,20 +38,21 @@ Production-ready API for **HNG Backend Stage 0**. It returns:
 ## 🧰 Tech Stack
 
 | Layer       | Tool                          |
-|------------|-------------------------------|
+|------------|--------------------------------|
 | Language    | Rust                          |
 | Web Server  | Axum                          |
 | Async       | Tokio                         |
 | HTTP Client | Reqwest                       |
 | Docs        | Utoipa + Swagger UI           |
 | Metrics     | Prometheus (text exposition)  |
-| Logs        | tracing + tracing-subscriber  |
+| Logs        | `tracing` + `tracing-subscriber` |
 
 ---
 
 ## 📚 API Contract
 
 ### ✅ Success (HTTP 200)
+
 ```json
 {
   "status": "success",
@@ -62,49 +65,102 @@ Production-ready API for **HNG Backend Stage 0**. It returns:
   "fact": "Cats have five toes on their front paws..."
 }
 ```
-### ❌ Failure (Upstream error → mapped HTTP code)
+
+### ❌ Failure (HTTP error mapped from upstream)
+
 ```json
 {
   "status": "failed",
   "message": "Cat oracle is taking too long ⏳",
   "status_code": 504
 }
+```
+
+#### Failure & Error Mapping
+
+| Failure class                      | Example cause                           | HTTP status | Client payload (example)                                              |
+|-----------------------------------|-----------------------------------------|-------------|------------------------------------------------------------------------|
+| Timeout                           | Upstream took too long                  | 504         | `{"status":"failed","message":"Cat oracle is taking too long ⏳","status_code":504}` |
+| Upstream 4xx                      | 400/404/429 from cat API                | 502         | `{"status":"failed","message":"Upstream rejected the request","status_code":502}`   |
+| Upstream 5xx                      | 500/502/503 from cat API                | 503         | `{"status":"failed","message":"Upstream service unavailable","status_code":503}`    |
+| Network / DNS / TLS               | Connection refused, name not resolved   | 502         | `{"status":"failed","message":"Network error reaching upstream","status_code":502}` |
+| Invalid/Unexpected JSON structure | Upstream changed response schema        | 502         | `{"status":"failed","message":"Bad response from upstream","status_code":502}`      |
+
+> The server logs capture full diagnostics; the client receives a safe, normalized error.
 
 ---
 
-## Project Structure
+## 🗺️ Endpoints
+
+- `GET /me` — Returns profile info, current UTC timestamp, and a fresh cat fact  
+  - **200 OK** → Success payload (see above)  
+  - **5xx/502/503/504** → Failure payload (normalized)  
+- `GET /metrics` — Prometheus metrics (text/plain; scrape‑ready)  
+- `GET /docs` — Swagger UI (OpenAPI available at `/api-doc/openapi.json`)
+
+### Quick cURL
+
+```bash
+# Profile
+curl -i http://localhost:8080/me
+
+# Metrics
+curl -i http://localhost:8080/metrics
+
+# OpenAPI JSON
+curl -i http://localhost:8080/api-doc/openapi.json
+```
+
+---
+
+## 🗂️ Project Structure
+
+```
 src/
-├── main.rs                   # entrypoint (bind, logging, layers)
-├── config/                   # AppConfig (PORT)
-│   └── mod.rs
-├── routes/                   # create_router (routes + docs)
-│   └── mod.rs
-├── models.rs                 # ProfileResponse, ErrorResponse, User
+├── main.rs                 # Entrypoint (bind server, logging, layers)
+├── config/
+│   └── mod.rs              # AppConfig (PORT, timeouts)
+├── routes/
+│   └── mod.rs              # create_router (routes + docs mounting)
+├── models.rs               # ProfileResponse, ErrorResponse, User
 ├── handlers/
-│   └── profile.rs            # GET /me (success or error)
+│   └── profile.rs          # GET /me (success/error mapping)
 ├── services/
-│   └── cat_service.rs        # cat fact + typed errors (timeout/4xx/5xx/network/json)
+│   └── cat_service.rs      # Cat fact + typed errors (timeout/4xx/5xx/network/json)
 └── metrics/
-    └── mod.rs                # Prometheus registry, /metrics, middleware
+    └── mod.rs              # Prometheus registry, /metrics, middleware
+```
 
 ---
 
-Configuration
+## ⚙️ Configuration
 
-Create .env (copy from example):
+Create `.env` (copy from example):
+
+```env
 # .env
 PORT=8080
 RUST_LOG=info,axum=info,tower_http=info
+```
 
-macOS/Linux inline override:
+Inline overrides:
+
+```bash
+# macOS/Linux
 PORT=9090 RUST_LOG=debug cargo run
 
-PowerShell:
+# PowerShell
 $env:PORT=9090; $env:RUST_LOG="debug"; cargo run
+```
 
+---
 
-Run Locally
-# 1) Install Rust: https://rustup.rs
+## 🧪 Run Locally
+
+```bash
+# 1) Install Rust
+#    https://rustup.rs
+
 # 2) Prepare env
 cp .env.example .env
 
@@ -112,9 +168,81 @@ cp .env.example .env
 RUST_LOG=info,axum=info,tower_http=info cargo run
 # => 🚀 Listening on http://0.0.0.0:8080
 
-
-Test endpoints:
+# 4) Hit the API
 curl -i http://localhost:8080/me
-open  http://localhost:8080/docs
-open  http://localhost:8080/metrics
 
+# 5) Open Swagger UI
+# macOS:
+open http://localhost:8080/docs
+# Linux:
+xdg-open http://localhost:8080/docs
+
+# 6) Prometheus metrics
+curl -i http://localhost:8080/metrics
+```
+
+---
+
+## 🧱 Build & Test
+
+```bash
+# Build release binary
+cargo build --release
+
+# Run tests (unit + integration where provided)
+cargo test
+```
+
+---
+
+## 🐳 Docker (Optional)
+
+```bash
+# Build image
+docker build -t dynamic-profile-api:latest .
+
+# Run container
+docker run --rm -p 8080:8080 -e PORT=8080 dynamic-profile-api:latest
+
+# Verify
+curl -i http://localhost:8080/me
+```
+
+---
+
+## 🔭 Observability
+
+- **Logging:** Structured JSON logs via `tracing` (request IDs, method, path, status, latency).
+- **Metrics:** Request counts, latencies, and error rates exposed at `/metrics`.
+- **Tracing:** Middleware attaches spans to each request for end‑to‑end timing.
+
+---
+
+## 🛡️ Error Handling (Design Summary)
+
+- All upstream errors are normalized into `ErrorResponse` with:
+  - `status: "failed"`
+  - Human‑readable `message`
+  - Correct `status_code` to match the failure category
+- Handlers remain thin; services classify errors so mapping is consistent and testable.
+
+---
+
+## 🧩 Implementation Notes
+
+- **Timeouts:** Each upstream call (cat fact) uses a per‑request timeout to avoid tail latencies.
+- **Resiliency:** The service layer is designed so you can easily add a circuit breaker/retry policy later.
+- **Separation:** Handlers are thin; services contain network logic + error typing; models are shared.
+
+---
+
+## 📦 Deployment
+
+- Provide your host URL in **Live API** section once deployed.
+- Works on most platforms (Fly.io, Railway, Render, Hetzner, DigitalOcean, AWS). Exposes `PORT` from env.
+
+---
+
+## 📄 License
+
+MIT (or your preferred license)
